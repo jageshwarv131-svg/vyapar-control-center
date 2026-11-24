@@ -1,0 +1,55 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vyapar Control Center</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#10141c;color:#fff;font-family:Arial,sans-serif;display:grid;place-items:center;min-height:100vh;padding:20px}
+.panel{width:100%;max-width:390px;background:#1b2230;padding:25px;border-radius:16px}
+h2{text-align:center}
+input,button{width:100%;padding:14px;margin:9px 0;border-radius:9px;border:1px solid #394457;font-size:15px}
+input{background:#101722;color:white}
+button{background:#e6e6e6;color:#111;font-weight:bold}
+#message{text-align:center;color:#ffb4a2;overflow-wrap:anywhere}
+</style>
+</head>
+<body>
+<div class="panel">
+<h2>VYAPAR CONTROL CENTER</h2>
+<p>Admin Login</p>
+<input id="email" type="email" placeholder="Admin email">
+<input id="password" type="password" placeholder="Password">
+<button onclick="login()">Login</button>
+<p id="message"></p>
+</div>
+<script>
+const SUPABASE_URL = "https://usauthwzgjbzohwkoqlv.supabase.co";
+const SUPABASE_KEY = "sb_publishable_7rUD88XWzEn-_B9YlbY6PQ_VWdzwNC8";
+const db = supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+async function login(){
+ const message=document.getElementById("message");
+ message.textContent="Checking...";
+ const {data,error}=await db.auth.signInWithPassword({
+  email:document.getElementById("email").value.trim(),
+  password:document.getElementById("password").value
+ });
+ if(error){message.textContent=error.message;return;}
+ const {data:profile,error:profileError}=await db
+  .from("admin_profiles").select("role")
+  .eq("user_id",data.user.id).maybeSingle();
+ if(profileError || !profile || profile.role!=="admin"){
+  await db.auth.signOut();
+  message.textContent="Admin access denied";
+  return;
+ }
+ message.style.color="#8ee6a2";
+ message.textContent="Admin login successful";
+}
+</script>
+</body>
+</html>
