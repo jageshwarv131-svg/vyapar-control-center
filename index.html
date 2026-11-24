@@ -1,55 +1,227 @@
 
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Vyapar Control Center</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *{box-sizing:border-box}
-body{margin:0;background:#10141c;color:#fff;font-family:Arial,sans-serif;display:grid;place-items:center;min-height:100vh;padding:20px}
-.panel{width:100%;max-width:390px;background:#1b2230;padding:25px;border-radius:16px}
-h2{text-align:center}
-input,button{width:100%;padding:14px;margin:9px 0;border-radius:9px;border:1px solid #394457;font-size:15px}
+body{margin:0;background:#10141c;color:#f5f5f5;font-family:Arial,sans-serif}
+header{padding:18px;background:#1b2230;display:flex;justify-content:space-between;align-items:center}
+h2{font-size:19px;margin:0}
+main{max-width:850px;margin:auto;padding:16px}
+.panel,.payment{background:#1b2230;padding:18px;border-radius:13px;margin:14px 0}
+input,button{width:100%;padding:13px;margin:8px 0;border-radius:8px;border:1px solid #394457;font-size:15px}
 input{background:#101722;color:white}
-button{background:#e6e6e6;color:#111;font-weight:bold}
-#message{text-align:center;color:#ffb4a2;overflow-wrap:anywhere}
+button{background:#e5e5e5;color:#111;font-weight:bold;cursor:pointer}
+button:disabled{opacity:.5}
+.approve{background:#276b43;color:white}
+.reject{background:#8c3030;color:white}
+.small{font-size:13px;color:#b8c1cf;overflow-wrap:anywhere}
+#dashboard{display:none}
+#message{color:#ffbd9f;overflow-wrap:anywhere}
+.keybox{background:#102c20;padding:14px;border-radius:8px;overflow-wrap:anywhere;color:#9cffba}
+.actions{display:flex;gap:10px}
+.actions button{flex:1}
 </style>
 </head>
 <body>
-<div class="panel">
+
+<header>
 <h2>VYAPAR CONTROL CENTER</h2>
-<p>Admin Login</p>
-<input id="email" type="email" placeholder="Admin email">
+<button style="width:auto" onclick="logout()">Logout</button>
+</header>
+
+<main>
+<section id="login" class="panel">
+<h3>Admin Login</h3>
+<input id="email" type="email" placeholder="Admin Email">
 <input id="password" type="password" placeholder="Password">
 <button onclick="login()">Login</button>
 <p id="message"></p>
+</section>
+
+<section id="dashboard">
+<div class="panel">
+<h3>Admin Dashboard</h3>
+<p>Payment Requests: ₹499 Lifetime License</p>
+<button onclick="loadPayments()">Refresh Payments</button>
+<p id="status" class="small">Loading...</p>
 </div>
+<div id="payments"></div>
+</section>
+</main>
+
 <script>
 const SUPABASE_URL = "https://usauthwzgjbzohwkoqlv.supabase.co";
 const SUPABASE_KEY = "sb_publishable_7rUD88XWzEn-_B9YlbY6PQ_VWdzwNC8";
+
 const db = supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
+const loginBox=document.getElementById("login");
+const dashboard=document.getElementById("dashboard");
+const message=document.getElementById("message");
+const statusBox=document.getElementById("status");
+const paymentsBox=document.getElementById("payments");
+
+function showMessage(text){
+ message.textContent=text;
+}
+
+async function checkAdmin(user){
+ const {data,error}=await db
+ .from("admin_profiles")
+ .select("role")
+ .eq("user_id",user.id)
+ .maybeSingle();
+
+ if(error || !data || data.role!=="admin") return false;
+ return true;
+}
+
 async function login(){
- const message=document.getElementById("message");
- message.textContent="Checking...";
- const {data,error}=await db.auth.signInWithPassword({
-  email:document.getElementById("email").value.trim(),
-  password:document.getElementById("password").value
- });
- if(error){message.textContent=error.message;return;}
- const {data:profile,error:profileError}=await db
-  .from("admin_profiles").select("role")
-  .eq("user_id",data.user.id).maybeSingle();
- if(profileError || !profile || profile.role!=="admin"){
+ showMessage("Checking login...");
+ const email=document.getElementById("email").value.trim();
+ const password=document.getElementById("password").value;
+
+ const {data,error}=await db.auth.signInWithPassword({email,password});
+
+ if(error){showMessage(error.message);return;}
+
+ if(!await checkAdmin(data.user)){
   await db.auth.signOut();
-  message.textContent="Admin access denied";
+  showMessage("Admin access denied");
   return;
  }
- message.style.color="#8ee6a2";
- message.textContent="Admin login successful";
+
+ openDashboard();
 }
+
+async function openDashboard(){
+ loginBox.style.display="none";
+ dashboard.style.display="block";
+ await loadPayments();
+}
+
+async function logout(){
+ await db.auth.signOut();
+ dashboard.style.display="none";
+ loginBox.style.display="block";
+ paymentsBox.replaceChildren();
+ showMessage("Logged out");
+}
+
+function safe(value){
+ return String(value??"").replace(/[&<>"']/g,c=>({
+ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+ })[c]);
+}
+
+async function loadPayments(){
+ statusBox.textContent="Loading payment requests...";
+ paymentsBox.replaceChildren();
+
+ const {data:sessionData}=await db.auth.getSession();
+ const user=sessionData.session?.user;
+
+ if(!user || !await checkAdmin(user)){
+  await logout();
+  return;
+ }
+
+ const {data,error}=await db
+ .from("payment_requests")
+ .select("id,user_id,amount_inr,payment_method,utr,status,customer_note,created_at")
+ .eq("status","pending")
+ .order("created_at",{ascending:false});
+
+ if(error){
+  statusBox.textContent="Error: "+error.message;
+  return;
+ }
+
+ if(!data || data.length===0){
+  statusBox.textContent="No pending payment requests.";
+  return;
+ }
+
+ statusBox.textContent=data.length+" pending payment request(s)";
+
+ data.forEach(p=>{
+  const card=document.createElement("div");
+  card.className="payment";
+
+  card.innerHTML=`
+   <h3>Payment Request</h3>
+   <p>Amount: <b>₹${safe(p.amount_inr)}</b></p>
+   <p>UTR: <b>${safe(p.utr)}</b></p>
+   <p>Method: ${safe(p.payment_method)}</p>
+   <p class="small">Customer ID: ${safe(p.user_id)}</p>
+   <p class="small">Request ID: ${safe(p.id)}</p>
+   <p class="small">Date: ${safe(p.created_at)}</p>
+   <p>Note: ${safe(p.customer_note||"No note")}</p>
+   <p class="small">Verify the actual PhonePe transaction before approval.</p>
+   <div class="actions">
+    <button class="approve">Approve</button>
+    <button class="reject">Reject</button>
+   </div>
+  `;
+
+  card.querySelector(".approve").onclick=()=>reviewPayment(p.id,"approve");
+  card.querySelector(".reject").onclick=()=>reviewPayment(p.id,"reject");
+  paymentsBox.appendChild(card);
+ });
+}
+
+async function reviewPayment(paymentId,action){
+ const confirmText=action==="approve"
+  ?"Have you verified the actual ₹499 payment in PhonePe? Approve and generate lifetime license?"
+  :"Are you sure you want to reject this payment?";
+
+ if(!confirm(confirmText)) return;
+
+ const buttons=paymentsBox.querySelectorAll("button");
+ buttons.forEach(b=>b.disabled=true);
+ statusBox.textContent="Processing...";
+
+ try{
+  const {data,error}=await db.functions.invoke("admin-approve-payment",{
+   body:{payment_id:paymentId,action:action}
+  });
+
+  if(error) throw error;
+  if(data?.error) throw new Error(data.error);
+
+  if(action==="approve"){
+   if(!data?.license_key){
+    throw new Error("Approval response received, but license key was not returned. Check function logs before retrying.");
+   }
+
+   alert("Payment approved. Lifetime License Key:\n\n"+data.license_key+
+   "\n\nCopy and securely save this key. It may not be shown again.");
+
+  }else{
+   alert("Payment rejected successfully.");
+  }
+
+  await loadPayments();
+
+ }catch(error){
+  statusBox.textContent="Error: "+error.message;
+  buttons.forEach(b=>b.disabled=false);
+ }
+}
+
+db.auth.onAuthStateChange(async(event,session)=>{
+ if(event==="SIGNED_OUT"){
+  dashboard.style.display="none";
+  loginBox.style.display="block";
+ }
+});
+
 </script>
 </body>
 </html>
