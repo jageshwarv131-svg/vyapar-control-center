@@ -187,8 +187,7 @@ async function reviewPayment(paymentId,action){
  buttons.forEach(b=>b.disabled=true);
  statusBox.textContent="Processing...";
 
- try{
-  const {data,error}=await db.functions.invoke("admin-approve-payment",{
+ try{const {data,error}=await db.functions.invoke("admin-approve-payment-",{
    body:{payment_id:paymentId,action:action}
   });
 
