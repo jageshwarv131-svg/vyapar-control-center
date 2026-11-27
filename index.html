@@ -9,218 +9,458 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *{box-sizing:border-box}
-body{margin:0;background:#10141c;color:#f5f5f5;font-family:Arial,sans-serif}
-header{padding:18px;background:#1b2230;display:flex;justify-content:space-between;align-items:center}
-h2{font-size:19px;margin:0}
-main{max-width:850px;margin:auto;padding:16px}
-.panel,.payment{background:#1b2230;padding:18px;border-radius:13px;margin:14px 0}
-input,button{width:100%;padding:13px;margin:8px 0;border-radius:8px;border:1px solid #394457;font-size:15px}
-input{background:#101722;color:white}
-button{background:#e5e5e5;color:#111;font-weight:bold;cursor:pointer}
-button:disabled{opacity:.5}
-.approve{background:#276b43;color:white}
-.reject{background:#8c3030;color:white}
-.small{font-size:13px;color:#b8c1cf;overflow-wrap:anywhere}
-#dashboard{display:none}
-#message{color:#ffbd9f;overflow-wrap:anywhere}
-.keybox{background:#102c20;padding:14px;border-radius:8px;overflow-wrap:anywhere;color:#9cffba}
-.actions{display:flex;gap:10px}
-.actions button{flex:1}
+body{margin:0;background:#10141c;color:#eef2f8;font-family:Arial,sans-serif}
+header{padding:17px;background:#171e29;border-bottom:1px solid #303a49;display:flex;justify-content:space-between;align-items:center;gap:10px}
+h2,h3{margin:0 0 14px}
+header h2{margin:0;font-size:19px}
+button{background:#273446;color:#fff;border:1px solid #3b4b60;padding:10px 14px;border-radius:8px;cursor:pointer;margin:3px}
+button:hover{background:#34465e}
+button:disabled{opacity:.5;cursor:not-allowed}
+.danger{background:#542b32}
+.good{background:#20513e}
+.warning{background:#5a4824}
+input,select,textarea{width:100%;padding:12px;margin:7px 0 13px;background:#171e29;color:#fff;border:1px solid #39485b;border-radius:8px}
+textarea{min-height:75px}
+label{font-size:13px;color:#bdc7d5}
+main{max-width:1100px;margin:auto;padding:16px}
+.hidden{display:none!important}
+.tabs{display:flex;gap:6px;overflow-x:auto;padding:12px 0}
+.tabs button{white-space:nowrap}
+.tabs button.active{background:#43516a;border-color:#7789a4}
+.panel,.card{background:#171e29;border:1px solid #303d4e;border-radius:12px;padding:16px;margin:12px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px}
+.stat{background:#202a38;border-radius:10px;padding:15px}
+.stat small{color:#aab7c8}
+.stat strong{display:block;font-size:25px;margin-top:8px}
+.muted{color:#9eacbf;font-size:13px;line-height:1.5;overflow-wrap:anywhere}
+.status{display:inline-block;padding:4px 8px;border-radius:20px;background:#344258;font-size:12px}
+.status.pending{background:#5a4824}
+.status.approved,.status.active{background:#20513e}
+.status.rejected,.status.blocked,.status.revoked{background:#542b32}
+.actions{display:flex;flex-wrap:wrap;gap:5px;margin-top:12px}
+.row{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+hr{border:0;border-top:1px solid #303d4e;margin:14px 0}
+#message{padding:12px;border-radius:8px;margin:10px 0;display:none;background:#273446}
+.empty{text-align:center;padding:25px;color:#9eacbf}
+.small{font-size:12px}
 </style>
 </head>
 <body>
 
 <header>
-<h2>VYAPAR CONTROL CENTER</h2>
-<button style="width:auto" onclick="logout()">Logout</button>
+  <h2>Vyapar Control Center</h2>
+  <button id="logoutBtn" class="hidden" onclick="logout()">Logout</button>
 </header>
 
 <main>
-<section id="login" class="panel">
-<h3>Admin Login</h3>
-<input id="email" type="email" placeholder="Admin Email">
-<input id="password" type="password" placeholder="Password">
-<button onclick="login()">Login</button>
-<p id="message"></p>
-</section>
+  <div id="message"></div>
 
-<section id="dashboard">
-<div class="panel">
-<h3>Admin Dashboard</h3>
-<p>Payment Requests: ₹499 Lifetime License</p>
-<button onclick="loadPayments()">Refresh Payments</button>
-<p id="status" class="small">Loading...</p>
-</div>
-<div id="payments"></div>
-</section>
+  <section id="loginBox" class="panel">
+    <h3>Admin Login</h3>
+    <label>Email</label>
+    <input id="email" type="email" placeholder="Admin email">
+    <label>Password</label>
+    <input id="password" type="password" placeholder="Admin password">
+    <button class="good" onclick="login()">Login</button>
+  </section>
+
+  <section id="app" class="hidden">
+    <div class="muted" id="adminInfo"></div>
+
+    <nav class="tabs">
+      <button class="active" onclick="showTab('dashboard',this)">Dashboard</button>
+      <button onclick="showTab('payments',this)">Pending Payments</button>
+      <button onclick="showTab('history',this)">Payment History</button>
+      <button onclick="showTab('users',this)">Users</button>
+      <button onclick="showTab('server',this)">Server Control</button>
+      <button onclick="showTab('activity',this)">Admin Activity</button>
+    </nav>
+
+    <section id="dashboard" class="tab">
+      <div class="row">
+        <h3>Dashboard</h3>
+        <button onclick="loadDashboard()">Refresh</button>
+      </div>
+      <div class="grid">
+        <div class="stat"><small>Total Users</small><strong id="totalUsers">—</strong></div>
+        <div class="stat"><small>Pending Payments</small><strong id="pendingCount">—</strong></div>
+        <div class="stat"><small>Approved Payments</small><strong id="approvedCount">—</strong></div>
+        <div class="stat"><small>Rejected Payments</small><strong id="rejectedCount">—</strong></div>
+      </div>
+      <div class="panel">
+        <h3>Server Status</h3>
+        <div id="dashboardServerStatus" class="muted">Loading...</div>
+      </div>
+    </section>
+
+    <section id="payments" class="tab hidden">
+      <div class="row">
+        <h3>Pending Payments</h3>
+        <button onclick="loadPayments()">Refresh</button>
+      </div>
+      <div id="pendingList"></div>
+    </section>
+
+    <section id="history" class="tab hidden">
+      <div class="row">
+        <h3>Payment History</h3>
+        <button onclick="loadHistory()">Refresh</button>
+      </div>
+      <div id="historyList"></div>
+    </section>
+
+    <section id="users" class="tab hidden">
+      <div class="row">
+        <h3>User Management</h3>
+        <button onclick="loadUsers()">Refresh</button>
+      </div>
+      <input id="userSearch" placeholder="Search by email or user ID" oninput="renderUsers()">
+      <div id="usersList"></div>
+    </section>
+
+    <section id="server" class="tab hidden">
+      <h3>Server Control</h3>
+      <div class="panel">
+        <div class="row">
+          <strong>Maintenance Mode</strong>
+          <span id="maintenanceStatus" class="status">Loading...</span>
+        </div>
+        <p class="muted">Maintenance ON karne par app ko maintenance message dikhane ke liye Android app mein bhi integration zaroori hai.</p>
+        <label>Maintenance Message</label>
+        <textarea id="maintenanceMessage">Sorry! Server is Busy. Our server is currently under maintenance. Please try again later.</textarea>
+        <div class="actions">
+          <button class="danger" onclick="setMaintenance(true)">Activate Maintenance</button>
+          <button class="good" onclick="setMaintenance(false)">Activate Server</button>
+          <button onclick="loadSettings()">Refresh Status</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="activity" class="tab hidden">
+      <div class="row">
+        <h3>Admin Activity</h3>
+        <button onclick="loadActivity()">Refresh</button>
+      </div>
+      <div id="activityList"></div>
+    </section>
+  </section>
 </main>
 
 <script>
 const SUPABASE_URL = "https://usauthwzgjbzohwkoqlv.supabase.co";
 const SUPABASE_KEY = "sb_publishable_7rUD88XWzEn-_B9YlbY6PQ_VWdzwNC8";
 
-const db = supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const db = window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
-const loginBox=document.getElementById("login");
-const dashboard=document.getElementById("dashboard");
-const message=document.getElementById("message");
-const statusBox=document.getElementById("status");
-const paymentsBox=document.getElementById("payments");
+let currentUser = null;
+let allUsers = [];
+let allPayments = [];
+let maintenanceEnabled = false;
 
-function showMessage(text){
- message.textContent=text;
+function msg(text){
+  const el=document.getElementById("message");
+  el.textContent=text;
+  el.style.display="block";
+  window.scrollTo({top:0,behavior:"smooth"});
+  setTimeout(()=>el.style.display="none",5000);
 }
+function safe(v){
+  return String(v ?? "—").replace(/[&<>"']/g,c=>({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  }[c]));
+}
+function date(v){
+  if(!v)return "—";
+  const d=new Date(v);
+  return isNaN(d)?"—":d.toLocaleString("en-IN");
+}
+function arr(data,key){
+  if(Array.isArray(data))return data;
+  if(Array.isArray(data?.[key]))return data[key];
+  if(Array.isArray(data?.data))return data.data;
+  return [];
+}
+function statusBadge(s){
+  const value=String(s||"unknown").toLowerCase();
+  return `<span class="status ${safe(value)}">${safe(value.replaceAll("_"," "))}</span>`;
+}
+function showTab(id,button){
+  document.querySelectorAll(".tab").forEach(x=>x.classList.add("hidden"));
+  document.getElementById(id).classList.remove("hidden");
+  document.querySelectorAll(".tabs button").forEach(x=>x.classList.remove("active"));
+  if(button)button.classList.add("active");
 
-async function checkAdmin(user){
- const {data,error}=await db
- .from("admin_profiles")
- .select("role")
- .eq("user_id",user.id)
- .maybeSingle();
-
- if(error || !data || data.role!=="admin") return false;
- return true;
+  if(id==="dashboard")loadDashboard();
+  if(id==="payments")loadPayments();
+  if(id==="history")loadHistory();
+  if(id==="users")loadUsers();
+  if(id==="server")loadSettings();
+  if(id==="activity")loadActivity();
 }
 
 async function login(){
- showMessage("Checking login...");
- const email=document.getElementById("email").value.trim();
- const password=document.getElementById("password").value;
+  const email=document.getElementById("email").value.trim();
+  const password=document.getElementById("password").value;
+  if(!email||!password)return msg("Email aur password enter karein.");
 
- const {data,error}=await db.auth.signInWithPassword({email,password});
+  const {data,error}=await db.auth.signInWithPassword({email,password});
+  if(error)return msg(error.message);
 
- if(error){showMessage(error.message);return;}
+  const {data:admin,error:adminError}=await db
+    .from("admin_profiles")
+    .select("role")
+    .eq("user_id",data.user.id)
+    .maybeSingle();
 
- if(!await checkAdmin(data.user)){
-  await db.auth.signOut();
-  showMessage("Admin access denied");
-  return;
- }
-
- openDashboard();
+  if(adminError||!admin||admin.role!=="admin"){
+    await db.auth.signOut();
+    return msg("Access denied: Admin account required.");
+  }
+  currentUser=data.user;
+  openDashboard();
 }
 
 async function openDashboard(){
- loginBox.style.display="none";
- dashboard.style.display="block";
- await loadPayments();
+  document.getElementById("loginBox").classList.add("hidden");
+  document.getElementById("app").classList.remove("hidden");
+  document.getElementById("logoutBtn").classList.remove("hidden");
+  document.getElementById("adminInfo").textContent="Logged in: "+(currentUser?.email||"Admin");
+  showTab("dashboard",document.querySelector(".tabs button"));
 }
 
 async function logout(){
- await db.auth.signOut();
- dashboard.style.display="none";
- loginBox.style.display="block";
- paymentsBox.replaceChildren();
- showMessage("Logged out");
+  await db.auth.signOut();
+  currentUser=null;
+  document.getElementById("app").classList.add("hidden");
+  document.getElementById("logoutBtn").classList.add("hidden");
+  document.getElementById("loginBox").classList.remove("hidden");
+  msg("Logged out.");
 }
 
-function safe(value){
- return String(value??"").replace(/[&<>"']/g,c=>({
- "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
- })[c]);
+async function adminAPI(action,extra={}){
+  const {data,error}=await db.functions.invoke("admin-management-api-",{
+    body:{action,...extra}
+  });
+  if(error)throw new Error(error.message||"Admin API error");
+  if(data?.error)throw new Error(data.error);
+  return data||{};
+}
+
+async function loadDashboard(){
+  try{
+    const d=await adminAPI("dashboard");
+    document.getElementById("totalUsers").textContent=d.total_users??d.totalUsers??"—";
+    document.getElementById("pendingCount").textContent=d.pending_payments??d.pending_count??"—";
+    document.getElementById("approvedCount").textContent=d.approved_payments??d.approved_count??"—";
+    document.getElementById("rejectedCount").textContent=d.rejected_payments??d.rejected_count??"—";
+    await loadSettings(true);
+  }catch(e){msg("Dashboard: "+e.message);}
 }
 
 async function loadPayments(){
- statusBox.textContent="Loading payment requests...";
- paymentsBox.replaceChildren();
-
- const {data:sessionData}=await db.auth.getSession();
- const user=sessionData.session?.user;
-
- if(!user || !await checkAdmin(user)){
-  await logout();
-  return;
- }
-
- const {data,error}=await db
- .from("payment_requests")
- .select("id,user_id,amount_inr,payment_method,utr,status,customer_note,created_at")
- .eq("status","pending")
- .order("created_at",{ascending:false});
-
- if(error){
-  statusBox.textContent="Error: "+error.message;
-  return;
- }
-
- if(!data || data.length===0){
-  statusBox.textContent="No pending payment requests.";
-  return;
- }
-
- statusBox.textContent=data.length+" pending payment request(s)";
-
- data.forEach(p=>{
-  const card=document.createElement("div");
-  card.className="payment";
-
-  card.innerHTML=`
-   <h3>Payment Request</h3>
-   <p>Amount: <b>₹${safe(p.amount_inr)}</b></p>
-   <p>UTR: <b>${safe(p.utr)}</b></p>
-   <p>Method: ${safe(p.payment_method)}</p>
-   <p class="small">Customer ID: ${safe(p.user_id)}</p>
-   <p class="small">Request ID: ${safe(p.id)}</p>
-   <p class="small">Date: ${safe(p.created_at)}</p>
-   <p>Note: ${safe(p.customer_note||"No note")}</p>
-   <p class="small">Verify the actual PhonePe transaction before approval.</p>
-   <div class="actions">
-    <button class="approve">Approve</button>
-    <button class="reject">Reject</button>
-   </div>
-  `;
-
-  card.querySelector(".approve").onclick=()=>reviewPayment(p.id,"approve");
-  card.querySelector(".reject").onclick=()=>reviewPayment(p.id,"reject");
-  paymentsBox.appendChild(card);
- });
+  const box=document.getElementById("pendingList");
+  box.innerHTML='<div class="empty">Loading payments...</div>';
+  try{
+    const d=await adminAPI("list_payments");
+    allPayments=arr(d,"payments");
+    const pending=allPayments.filter(p=>p.status==="pending");
+    if(!pending.length){
+      box.innerHTML='<div class="empty">No pending payments.</div>';
+      return;
+    }
+    box.innerHTML=pending.map(paymentCard).join("");
+  }catch(e){box.innerHTML='<div class="empty">Error: '+safe(e.message)+'</div>';}
 }
 
-async function reviewPayment(paymentId,action){
- const confirmText=action==="approve"
-  ?"Have you verified the actual ₹499 payment in PhonePe? Approve and generate lifetime license?"
-  :"Are you sure you want to reject this payment?";
+function paymentCard(p){
+  return `<div class="card">
+    <div class="row"><strong>₹${safe(p.amount_inr)}</strong>${statusBadge(p.status)}</div>
+    <p class="muted">Email: ${safe(p.user_email)}<br>
+    User ID: ${safe(p.user_id)}<br>
+    Plan: ${safe(p.plan_type||"Old / unspecified")}<br>
+    Payment method: ${safe(p.payment_method)} ${safe(p.upi_app||"")}<br>
+    UTR: ${safe(p.utr)}<br>
+    Request ID: ${safe(p.id)}<br>
+    Date: ${safe(date(p.created_at))}<br>
+    Note: ${safe(p.customer_note)}</p>
+    <div class="actions">
+      <button class="good" onclick="reviewPayment('${safe(p.id)}','approve')">Approve</button>
+      <button class="danger" onclick="reviewPayment('${safe(p.id)}','reject')">Reject</button>
+    </div>
+  </div>`;
+}
 
- if(!confirm(confirmText)) return;
+async function reviewPayment(id,action){
+  let confirmation=action==="approve"?"Approve this payment?":"Reject this payment?";
+  if(!confirm(confirmation))return;
+  try{
+    const {data,error}=await db.functions.invoke("admin-approve-payment-",{
+      body:{payment_id:id,action}
+    });
+    if(error)throw new Error(error.message);
+    if(data?.error)throw new Error(data.error);
+    msg(action==="approve"?"Payment approved.":"Payment rejected.");
+    await loadPayments();
+    await loadDashboard();
+    await loadHistory();
+  }catch(e){msg("Payment action failed: "+e.message);}
+}
 
- const buttons=paymentsBox.querySelectorAll("button");
- buttons.forEach(b=>b.disabled=true);
- statusBox.textContent="Processing...";
+async function loadHistory(){
+  const box=document.getElementById("historyList");
+  box.innerHTML='<div class="empty">Loading history...</div>';
+  try{
+    const d=await adminAPI("list_payments");
+    allPayments=arr(d,"payments");
+    if(!allPayments.length){
+      box.innerHTML='<div class="empty">No payment records found.</div>';
+      return;
+    }
+    box.innerHTML=allPayments.map(p=>`
+      <div class="card">
+        <div class="row"><strong>₹${safe(p.amount_inr)} · ${safe(p.plan_type||"Old / unspecified")}</strong>${statusBadge(p.status)}</div>
+        <p class="muted">
+          Email: ${safe(p.user_email)}<br>
+          UTR: ${safe(p.utr)}<br>
+          Method: ${safe(p.payment_method)} ${safe(p.upi_app||"")}<br>
+          Request date: ${safe(date(p.created_at))}<br>
+          Reviewed date: ${safe(date(p.reviewed_at))}<br>
+          Reviewed by ID: ${safe(p.reviewed_by)}
+        </p>
+      </div>`).join("");
+  }catch(e){box.innerHTML='<div class="empty">Error: '+safe(e.message)+'</div>';}
+}
 
- try{const {data,error}=await db.functions.invoke("admin-approve-payment-",{
-   body:{payment_id:paymentId,action:action}
-  });
+async function loadUsers(){
+  const box=document.getElementById("usersList");
+  box.innerHTML='<div class="empty">Loading users...</div>';
+  try{
+    const d=await adminAPI("list_users");
+    allUsers=arr(d,"users");
+    renderUsers();
+  }catch(e){box.innerHTML='<div class="empty">Error: '+safe(e.message)+'</div>';}
+}
 
-  if(error) throw error;
-  if(data?.error) throw new Error(data.error);
+function renderUsers(){
+  const q=(document.getElementById("userSearch").value||"").toLowerCase();
+  const list=allUsers.filter(u=>
+    String(u.email||"").toLowerCase().includes(q)||
+    String(u.id||u.user_id||"").toLowerCase().includes(q)
+  );
+  const box=document.getElementById("usersList");
+  if(!list.length){box.innerHTML='<div class="empty">No users found.</div>';return;}
 
-  if(action==="approve"){
-   if(!data?.license_key){
-    throw new Error("Approval response received, but license key was not returned. Check function logs before retrying.");
-   }
+  box.innerHTML=list.map(u=>{
+    const id=u.id||u.user_id;
+    const license=u.latest_license||u.license||{};
+    const blocked=!!(u.is_blocked||u.blocked);
+    return `<div class="card">
+      <strong>${safe(u.email)}</strong>
+      <p class="muted">
+        User ID: ${safe(id)}<br>
+        Account created: ${safe(date(u.created_at))}<br>
+        Email verified: ${safe(u.email_verified??u.email_confirmed_at?"Yes":"No")}<br>
+        License: ${safe(license.license_type||u.license_type||"No paid license")}<br>
+        License status: ${safe(license.status||u.license_status||u.entitlement_status||"Unknown")}<br>
+        Expiry: ${safe(date(license.expires_at||u.expires_at))}<br>
+        Account control: ${blocked?"Blocked":"Not blocked"}
+      </p>
+      <div class="actions">
+        <button class="${blocked?"good":"danger"}" onclick="toggleBlock('${safe(id)}',${!blocked})">${blocked?"Unblock":"Block"} User</button>
+        <button onclick="grantPlan('${safe(id)}','monthly')">Grant Monthly</button>
+        <button onclick="grantPlan('${safe(id)}','yearly')">Grant Yearly</button>
+      </div>
+    </div>`;
+  }).join("");
+}
 
-   alert("Payment approved. Lifetime License Key:\n\n"+data.license_key+
-   "\n\nCopy and securely save this key. It may not be shown again.");
+async function toggleBlock(userId,block){
+  const reason=block?(prompt("Block karne ka reason:")||"Admin action"):"";
+  if(block&&!confirm("Is user ko block karna hai?"))return;
+  if(!block&&!confirm("Is user ko unblock karna hai?"))return;
+  try{
+    await adminAPI("set_block",{user_id:userId,is_blocked:block,reason});
+    msg(block?"Block status saved.":"User unblock status saved.");
+    await loadUsers();
+  }catch(e){msg("Block action failed: "+e.message);}
+}
 
-  }else{
-   alert("Payment rejected successfully.");
+async function grantPlan(userId,plan){
+  const amount=plan==="monthly"?499:1500;
+  if(!confirm(`${plan} premium ₹${amount} ke liye manually grant karna hai?`))return;
+  try{
+    await adminAPI("grant_plan",{user_id:userId,plan_type:plan});
+    msg(plan+" plan grant request successful.");
+    await loadUsers();
+    await loadDashboard();
+  }catch(e){msg("Grant failed: "+e.message);}
+}
+
+async function loadSettings(quiet=false){
+  try{
+    const d=await adminAPI("get_settings");
+    const setting=d.settings||d.maintenance_mode||d;
+    const enabled=setting.enabled===true;
+    maintenanceEnabled=enabled;
+    const message=setting.message||"Sorry! Server is Busy. Our server is currently under maintenance. Please try again later.";
+    document.getElementById("maintenanceMessage").value=message;
+    const badge=document.getElementById("maintenanceStatus");
+    badge.textContent=enabled?"MAINTENANCE ON":"SERVER ACTIVE";
+    badge.className="status "+(enabled?"blocked":"active");
+    document.getElementById("dashboardServerStatus").textContent=enabled?"Maintenance mode is ON":"Server is marked Active";
+  }catch(e){
+    if(!quiet)msg("Settings error: "+e.message);
   }
-
-  await loadPayments();
-
- }catch(error){
-  statusBox.textContent="Error: "+error.message;
-  buttons.forEach(b=>b.disabled=false);
- }
 }
 
-db.auth.onAuthStateChange(async(event,session)=>{
- if(event==="SIGNED_OUT"){
-  dashboard.style.display="none";
-  loginBox.style.display="block";
- }
+async function setMaintenance(enabled){
+  const message=document.getElementById("maintenanceMessage").value.trim();
+  if(!confirm(enabled?"Maintenance ON karna hai?":"Server ACTIVE karna hai?"))return;
+  try{
+    await adminAPI("set_maintenance",{enabled,message});
+    msg(enabled?"Maintenance setting enabled.":"Server active setting saved.");
+    await loadSettings();
+  }catch(e){msg("Server setting failed: "+e.message);}
+}
+
+async function loadActivity(){
+  const box=document.getElementById("activityList");
+  box.innerHTML='<div class="empty">Loading activity...</div>';
+  try{
+    const d=await adminAPI("list_audit_logs");
+    const logs=arr(d,"logs");
+    if(!logs.length){box.innerHTML='<div class="empty">No admin activity found.</div>';return;}
+    box.innerHTML=logs.map(log=>`
+      <div class="card">
+        <strong>${safe(log.action)}</strong>
+        <p class="muted">
+          Admin ID: ${safe(log.admin_id)}<br>
+          Target User: ${safe(log.target_user_id)}<br>
+          Payment ID: ${safe(log.payment_id)}<br>
+          Time: ${safe(date(log.created_at))}<br>
+          Details: ${safe(JSON.stringify(log.details||{}))}
+        </p>
+      </div>`).join("");
+  }catch(e){box.innerHTML='<div class="empty">Error: '+safe(e.message)+'</div>';}
+}
+
+db.auth.getSession().then(async({data})=>{
+  if(!data.session)return;
+  currentUser=data.session.user;
+  const {data:admin,error}=await db.from("admin_profiles")
+    .select("role").eq("user_id",currentUser.id).maybeSingle();
+  if(!error&&admin?.role==="admin")openDashboard();
+  else await db.auth.signOut();
 });
 
+db.auth.onAuthStateChange((event,session)=>{
+  if(event==="SIGNED_OUT"){
+    currentUser=null;
+    document.getElementById("app").classList.add("hidden");
+    document.getElementById("logoutBtn").classList.add("hidden");
+    document.getElementById("loginBox").classList.remove("hidden");
+  }
+});
 </script>
 </body>
 </html>
