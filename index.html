@@ -241,7 +241,25 @@ async function adminAPI(action,extra={}){
   const {data,error}=await db.functions.invoke("admin-management-api-",{
     body:{action,...extra}
   });
-  if(error)throw new Error(error.message||"Admin API error");
+
+  if(error){
+    let detail=error.message||"Admin API error";
+
+    if(error.context){
+      try{
+        const response=error.context.clone();
+        const body=await response.json();
+        detail=body.error||body.message||JSON.stringify(body);
+      }catch(e){
+        try{
+          detail=await error.context.clone().text();
+        }catch(e2){}
+      }
+    }
+
+    throw new Error(detail);
+  }
+
   if(data?.error)throw new Error(data.error);
   return data||{};
 }
